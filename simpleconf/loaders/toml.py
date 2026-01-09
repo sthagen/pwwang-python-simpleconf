@@ -27,12 +27,13 @@ class TomlLoader(Loader):
         if not self._exists(conf, ignore_nonexist):
             return {}
 
-        if toml.__name__ in ("tomli", "tomllib"):  # pragma: no cover
-            with open(conf, "rb") as f:
-                return toml.load(f)
-
-        with open(conf, "r") as f:  # rtoml
-            return toml.load(f)
+        conf = self.__class__._convert_path(conf)
+        content = conf.read_bytes()
+        try:
+            return toml.loads(content)
+        except TypeError:
+            content = content.decode()
+            return toml.loads(content)
 
     async def a_loading(self, conf: Any, ignore_nonexist: bool) -> Dict[str, Any]:
         """Asynchronously load the configuration from a toml file"""
@@ -47,16 +48,16 @@ class TomlLoader(Loader):
         if not await self._a_exists(conf, ignore_nonexist):
             return {}
 
-        async with self.__class__._convert_path(conf).a_open("rb") as f:
-            content = await f.read()
-            try:
-                return toml.loads(content)
-            except TypeError:
-                content = content.decode()
-                return toml.loads(content)
+        conf = self.__class__._convert_path(conf)
+        content = await conf.a_read_bytes()
+        try:
+            return toml.loads(content)
+        except TypeError:
+            content = content.decode()
+            return toml.loads(content)
 
 
-class TomlsLoader(NoConvertingPathMixin, TomlLoader):
+class TomlsLoader(NoConvertingPathMixin, TomlLoader):  # type: ignore[misc]
     """Toml string loader"""
 
     def loading(self, conf: Any, ignore_nonexist: bool) -> Dict[str, Any]:
