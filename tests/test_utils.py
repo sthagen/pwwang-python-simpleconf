@@ -203,6 +203,7 @@ def test_detect_loadenv_directive_custom_path(tmp_path):
     assert result == str(tmp_path.parent / "shared" / ".env")
 
 
+@pytest.mark.skipif(sys.platform != "linux", reason="Linux-only")
 def test_detect_loadenv_directive_absolute_path(tmp_path):
     """Directive with absolute path is returned as-is."""
     f = tmp_path / "config.yaml"
