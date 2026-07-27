@@ -2355,7 +2355,6 @@ wheels = [
 
 [[package]]
 name = "python-simpleconf"
-version = "0.9.3"
 source = { editable = "." }
 dependencies = [
     { name = "diot" },
@@ -2432,7 +2431,7 @@ requires-dist = [
     { name = "tomli", marker = "sys_platform != 'linux' and extra == 'all'", specifier = ">=2.0,<3" },
     { name = "tomli", marker = "sys_platform != 'linux' and extra == 'toml'", specifier = ">=2.0,<3" },
 ]
-provides-extras = ["ini", "env", "yaml", "toml", "async", "jinja2", "liquid", "liquidpy", "all"]
+provides-extras = ["all", "async", "env", "ini", "jinja2", "liquid", "liquidpy", "toml", "yaml"]
 
 [package.metadata.requires-dev]
 dev = [
