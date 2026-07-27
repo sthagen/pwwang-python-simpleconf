@@ -4,6 +4,8 @@ from simpleconf.exceptions import FormatNotSupported
 from simpleconf.utils import (
     config_to_ext,
     detect_loader_directive,
+    detect_loadenv_directive,
+    load_dotenv_file,
     get_loader,
     require_package,
 )
@@ -180,3 +182,79 @@ def test_detect_loader_directive_read_error(tmp_path, monkeypatch):
     monkeypatch.setattr(pathlib.Path, "read_text", bad_read_text)
     result = detect_loader_directive(f, "toml")
     assert result == "toml"
+
+
+# --- detect_loadenv_directive tests ---
+
+
+def test_detect_loadenv_directive_default(tmp_path):
+    """Bare directive returns ./.env relative to config dir."""
+    f = tmp_path / "config.yaml"
+    f.write_text("# simpleconf-loadenv\na: 1\n")
+    result = detect_loadenv_directive(f)
+    assert result == str(tmp_path / ".env")
+
+
+def test_detect_loadenv_directive_custom_path(tmp_path):
+    """Directive with path returns the resolved absolute path."""
+    f = tmp_path / "config.yaml"
+    f.write_text("# simpleconf-loadenv: ../shared/.env\na: 1\n")
+    result = detect_loadenv_directive(f)
+    assert result == str(tmp_path.parent / "shared" / ".env")
+
+
+def test_detect_loadenv_directive_absolute_path(tmp_path):
+    """Directive with absolute path is returned as-is."""
+    f = tmp_path / "config.yaml"
+    f.write_text("# simpleconf-loadenv: /abs/path/.env\na: 1\n")
+    result = detect_loadenv_directive(f)
+    assert result == "/abs/path/.env"
+
+
+def test_detect_loadenv_directive_no_directive(tmp_path):
+    """No directive returns None."""
+    f = tmp_path / "config.yaml"
+    f.write_text("a: 1\n")
+    result = detect_loadenv_directive(f)
+    assert result is None
+
+
+def test_detect_loadenv_directive_dict():
+    """Dict config returns None."""
+    result = detect_loadenv_directive({"a": 1})
+    assert result is None
+
+
+def test_detect_loadenv_directive_nonexistent(tmp_path):
+    """Non-existent file returns None."""
+    result = detect_loadenv_directive(tmp_path / "nonexistent.yaml")
+    assert result is None
+
+
+def test_detect_loadenv_directive_on_second_line(tmp_path):
+    """Directive on second line is still detected."""
+    f = tmp_path / "config.yaml"
+    f.write_text(
+        "# simpleconf-loader: liq\n"
+        "# simpleconf-loadenv\n"
+        "a: 1\n"
+    )
+    result = detect_loadenv_directive(f)
+    assert result == str(tmp_path / ".env")
+
+
+# --- load_dotenv_file tests ---
+
+
+def test_load_dotenv_file_valid(tmp_path):
+    """Load a valid .env file."""
+    env = tmp_path / ".env"
+    env.write_text("KEY1=val1\nKEY2=val2\n")
+    result = load_dotenv_file(str(env))
+    assert result == {"KEY1": "val1", "KEY2": "val2"}
+
+
+def test_load_dotenv_file_missing(tmp_path):
+    """Missing .env file returns empty dict."""
+    result = load_dotenv_file(str(tmp_path / "nonexistent.env"))
+    assert result == {}

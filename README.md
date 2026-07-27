@@ -310,9 +310,9 @@ conf = Config.load('config.liq.toml')
 # conf.section1.a == 1
 # conf.section2.a == 2
 ```
-#### Loader directive in the first line
+#### Loader directive
 
-Instead of using a special file extension, you can embed a loader directive in the **first line** of a configuration file as a comment. This allows a plain `config.toml` to be processed by the Liquid engine without renaming the file.
+Instead of using a special file extension, you can embed a loader directive in the first lines of a configuration file as a comment. This allows a plain `config.toml` to be processed by the Liquid engine without renaming the file.
 
 The directive format is:
 
@@ -364,3 +364,107 @@ from simpleconf import Config
 conf = Config.load('config.yaml')
 # conf.default.a == 2
 ```
+
+#### Loadenv directive
+
+You can also embed a `# simpleconf-loadenv` directive in the first few lines of a configuration file to load environment variables from a `.env` file. This allows you to reference environment variables directly in your config values using `$env:VAR` syntax, and makes them available as `env` in Jinja2/Liquid templates via `{{ env.VAR }}` or `{{ env["VAR"] }}`.
+
+The directive format is:
+
+```
+# simpleconf-loadenv
+# simpleconf-loadenv: /path/to/.env
+```
+
+When no path is given, `./.env` is loaded (relative to the config file's directory).
+
+Supported comment prefixes: `#`, `;`, `//` (case-insensitive).
+
+**Example — using `$env:VAR` references:**
+
+`.env`
+```env
+DB_HOST=localhost
+DB_PORT=@int:5432
+```
+
+`config.yaml`
+```yaml
+# simpleconf-loadenv
+db:
+  host: $env:DB_HOST
+  port: $env:DB_PORT
+```
+
+```python
+from simpleconf import Config
+
+conf = Config.load('config.yaml')
+# conf.db.host == 'localhost'
+# conf.db.port == 5432  # @int: cast to int
+```
+
+The `$env:VAR` syntax works in all supported formats (YAML, TOML, INI, JSON, .env). In formats that require quoted strings (TOML), wrap the reference in quotes: `"$env:DB_HOST"`.
+
+Lookup order: the loaded `.env` file is checked first, then `os.environ` as a fallback.
+
+**Modifiers — controlling what happens when a variable is not found**
+
+The `$env:` syntax supports optional modifiers to control the behavior when a variable is not found:
+
+| Syntax | Behavior when VAR not found |
+|---|---|
+| `$env:VAR` | **Default** — raises `ValueError` |
+| `$env:VAR:required` | Explicit form — raises `ValueError` |
+| `$env:VAR:optional-asis` | Keeps the literal `$env:VAR` string unchanged |
+| `$env:VAR:optional-empty` | Resolves to an empty string `""` |
+
+**Example — using modifiers:**
+
+`.env`
+```env
+DB_HOST=localhost
+```
+
+`config.yaml`
+```yaml
+# simpleconf-loadenv
+db:
+  host: $env:DB_HOST
+  port: $env:DB_PORT:optional-asis   # keeps "$env:DB_PORT" as-is when not found
+  timeout: $env:TIMEOUT:optional-empty  # becomes "" when not found
+```
+
+```python
+from simpleconf import Config
+
+conf = Config.load('config.yaml')
+# conf.db.host == 'localhost'
+# conf.db.port == '$env:DB_PORT'
+# conf.db.timeout == ''
+```
+
+**Example — using `env` in templates:**
+
+`.env`
+```env
+DB_HOST=localhost
+DB_PORT=5432
+```
+
+`config.toml`
+```toml
+# simpleconf-loadenv
+# simpleconf-loader: liq
+[default]
+url = "{{ env.DB_HOST }}:{{ env.DB_PORT }}"
+```
+
+```python
+from simpleconf import Config
+
+conf = Config.load('config.toml')
+# conf.default.url == 'localhost:5432'
+```
+
+Both directives (`simpleconf-loader` and `simpleconf-loadenv`) can coexist in the same file on different lines. The order does not matter.
