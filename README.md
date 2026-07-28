@@ -367,6 +367,18 @@ conf = Config.load('config.yaml')
 
 #### Loadenv directive
 
+You will need `python-dotenv` installed to use the `loadenv` directive. You can install it with:
+
+```shell
+pip install python-simpleconf[toml,env]
+```
+if you only need TOML and dotenv support, or
+
+```shell
+pip install python-simpleconf[all]
+```
+if you want all supported formats.
+
 You can also embed a `# simpleconf-loadenv` directive in the first few lines of a configuration file to load environment variables from a `.env` file. This allows you to reference environment variables directly in your config values using `$env:VAR` syntax, and makes them available as `env` in Jinja2/Liquid templates via `{{ env.VAR }}` or `{{ env["VAR"] }}`.
 
 The directive format is:
