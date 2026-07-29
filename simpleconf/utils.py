@@ -38,7 +38,11 @@ def _read_first_lines(conf: Any) -> List[str]:
         return []
 
     path = Path(conf)
-    if not path.exists():
+    try:
+        if not path.exists():
+            return []
+    except Exception:  # pragma: no cover
+        # e.g. OSError: Filename too long
         return []
 
     try:
