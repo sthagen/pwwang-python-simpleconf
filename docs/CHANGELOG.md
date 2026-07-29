@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.9.5
+
+- fix: fix error for _read_first_lines when file name is too long
+- docs: update README to include installation instructions for loadenv directive
+
 ## 0.9.4
 
 - test: skip loadenv directive test on non-Linux platforms
