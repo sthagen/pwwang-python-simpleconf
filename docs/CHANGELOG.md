@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 0.9.5
+
+- fix: fix error for _read_first_lines when file name is too long
+- docs: update README to include installation instructions for loadenv directive
+
+## 0.9.4
+
+- test: skip loadenv directive test on non-Linux platforms
+- feat: add support for loadenv directive to inject environment variables from .env files
+- chore: bump up dependencies
+- chore: update rtoml version constraint for linux compatibility
 
 ## 0.9.3
 

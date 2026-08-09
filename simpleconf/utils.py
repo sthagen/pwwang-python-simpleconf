@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import io
 import re
 from pathlib import Path
 from importlib import import_module
 from types import ModuleType
-from typing import Any
+from typing import Any, Dict, List
 
 from .exceptions import FormatNotSupported
 from .loaders import Loader
@@ -17,9 +18,42 @@ _LOADER_DIRECTIVE_RE = re.compile(
     re.IGNORECASE,
 )
 
+_LOADENV_DIRECTIVE_RE = re.compile(
+    r"^\s*(?:#|;|//)\s*simpleconf-loadenv(?::\s*(.+))?$",
+    re.IGNORECASE,
+)
+
+
+def _read_first_lines(conf: Any) -> List[str]:
+    """Read the first few lines of a config file for directive detection.
+
+    Args:
+        conf: The configuration source.
+
+    Returns:
+        A list of lines (up to 5) from the beginning of the file,
+        or an empty list if *conf* is not a readable file.
+    """
+    if isinstance(conf, dict) or hasattr(conf, "read"):
+        return []
+
+    path = Path(conf)
+    try:
+        if not path.exists():
+            return []
+    except Exception:  # pragma: no cover
+        # e.g. OSError: Filename too long
+        return []
+
+    try:
+        return path.read_text(errors="replace").split("\n")[:5]
+    except Exception:
+        return []
+
 
 def detect_loader_directive(conf: Any, current_ext: str) -> str:
-    """Detect if the first line of a config file contains a loader directive.
+    """Detect if the first few lines of a config file contain a loader
+    directive.
 
     Supports comment styles::
 
@@ -42,36 +76,98 @@ def detect_loader_directive(conf: Any, current_ext: str) -> str:
         The overriding extension string, or *current_ext* when no directive
         is present.
     """
-    if isinstance(conf, dict) or hasattr(conf, "read"):
+    lines = _read_first_lines(conf)
+    if not lines:
         return current_ext
 
-    path = Path(conf)
-    if not path.exists():
-        return current_ext
+    for line in lines:
+        match = _LOADER_DIRECTIVE_RE.match(line)
+        if not match:
+            continue
 
-    try:
-        first_line = path.read_text(errors="replace").split("\n", 1)[0]
-    except Exception:
-        return current_ext
+        directive = match.group(1).lower()
 
-    match = _LOADER_DIRECTIVE_RE.match(first_line)
-    if not match:
-        return current_ext
+        # Derive the base format name
+        # (strip any existing template suffix)
+        parts = current_ext.split(".")
+        base_ext = parts[0] if parts[-1] in ("j2", "liq") else current_ext
 
-    directive = match.group(1).lower()
+        if directive in ("liq", "liquid"):
+            return base_ext + ".liq"
 
-    # Derive the base format name (strip any existing template suffix)
-    parts = current_ext.split(".")
-    base_ext = parts[0] if parts[-1] in ("j2", "liq") else current_ext
+        if directive in ("j2", "jinja", "jinja2"):
+            return base_ext + ".j2"
 
-    if directive in ("liq", "liquid"):
-        return base_ext + ".liq"
+        # Treat as an explicit loader extension name
+        return directive
 
-    if directive in ("j2", "jinja", "jinja2"):
-        return base_ext + ".j2"
+    return current_ext
 
-    # Treat as an explicit loader extension name
-    return directive
+
+def detect_loadenv_directive(conf: Any) -> str | None:
+    """Detect if the first few lines of a config file contain a loadenv
+    directive.
+
+    Supports both a bare directive (defaults to ``./.env``) and a path::
+
+        # simpleconf-loadenv
+        # simpleconf-loadenv: /path/to/.env
+        ; simpleconf-loadenv: ../shared/.env
+        // simpleconf-loadenv
+
+    The path is resolved relative to the config file's directory.
+
+    Args:
+        conf: The configuration source.  Dicts and stream objects are
+            ignored (returns ``None``).
+
+    Returns:
+        The absolute path to the ``.env`` file, or ``None`` when no
+        directive is present.
+    """
+    lines = _read_first_lines(conf)
+    if not lines:
+        return None
+
+    for line in lines:
+        match = _LOADENV_DIRECTIVE_RE.match(line)
+        if not match:
+            continue
+
+        raw_path = (match.group(1) or "").strip()
+        conf_dir = Path(conf).parent
+
+        if not raw_path:
+            return str(conf_dir.resolve() / ".env")
+
+        env_path = Path(raw_path)
+        if not env_path.is_absolute():
+            env_path = (conf_dir / env_path).resolve()
+        return str(env_path)
+
+    return None
+
+
+def load_dotenv_file(env_path: str) -> Dict[str, str]:
+    """Load environment variables from a ``.env`` file.
+
+    Uses ``python-dotenv`` to parse the file.  Returns only the variables
+    defined in the file — does **not** modify ``os.environ``.
+
+    Args:
+        env_path: Path to the ``.env`` file.
+
+    Returns:
+        A dict of variable names to values.  Returns an empty dict when
+        the file does not exist.
+    """
+    dotenv = require_package("dotenv")
+    dotenv_file = Path(env_path)
+    if not dotenv_file.exists():
+        return {}
+    content = dotenv_file.read_text()
+    sio = io.StringIO(content)
+    return dict(dotenv.dotenv_values(stream=sio))
 
 
 def config_to_ext(conf: Any, secondary: bool = True) -> str:

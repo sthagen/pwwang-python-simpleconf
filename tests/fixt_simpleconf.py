@@ -204,3 +204,94 @@ def toml_with_explicit_liq_directive(config_path):
 @pytest.fixture(scope="module")
 def dict_obj():
     return {"default": {"a": 1}, "b": 2}
+
+
+@pytest.fixture(scope="module")
+def dotenv_file(config_path):
+    """A .env file with some test vars."""
+    ret = config_path / ".env"
+    ret.write_text("DB_HOST=localhost\nDB_PORT=@int:5432\n")
+    return ret
+
+
+@pytest.fixture(scope="module")
+def yaml_with_loadenv(config_path, dotenv_file):
+    """YAML config with loadenv directive (default path)."""
+    ret = config_path / "loadenv_test.yaml"
+    ret.write_text(
+        "# simpleconf-loadenv\n"
+        "db:\n"
+        "  host: $env:DB_HOST\n"
+        "  port: $env:DB_PORT\n"
+    )
+    return ret
+
+
+@pytest.fixture(scope="module")
+def yaml_with_loadenv_custom(config_path):
+    """YAML config with loadenv directive (custom path)."""
+    # Create .env in a subdirectory
+    sub = config_path / "sub"
+    sub.mkdir(exist_ok=True)
+    env_file = sub / "custom.env"
+    env_file.write_text("CUSTOM_VAR=custom_value\n")
+    ret = config_path / "loadenv_custom.yaml"
+    ret.write_text(
+        f"# simpleconf-loadenv: {env_file}\n"
+        "custom: $env:CUSTOM_VAR\n"
+    )
+    return ret
+
+
+@pytest.fixture(scope="module")
+def yaml_with_loadenv_and_loader(config_path, dotenv_file):
+    """YAML config with both loadenv and loader directives."""
+    ret = config_path / "loadenv_loader.yaml"
+    ret.write_text(
+        "# simpleconf-loadenv\n"
+        "# simpleconf-loader: liq\n"
+        "db:\n"
+        "  host: $env:DB_HOST\n"
+        "  port: $env:DB_PORT\n"
+        "db2:\n"
+        "  host: {{ env.DB_HOST }}\n"
+        "  port: {{ env.DB_PORT }}\n"
+    )
+    return ret
+
+
+@pytest.fixture(scope="module")
+def yaml_with_loadenv_osenv_fallback(config_path):
+    """YAML config with loadenv and os.environ fallback."""
+    ret = config_path / "loadenv_fallback.yaml"
+    ret.write_text(
+        "# simpleconf-loadenv\n"
+        "path: $env:PATH\n"
+    )
+    return ret
+
+
+@pytest.fixture(scope="module")
+def ini_with_loadenv(config_path, dotenv_file):
+    """INI config with loadenv directive."""
+    ret = config_path / "loadenv_test.ini"
+    ret.write_text(
+        "# simpleconf-loadenv\n"
+        "[default]\n"
+        "host = $env:DB_HOST\n"
+        "port = $env:DB_PORT\n"
+    )
+    return ret
+
+
+@pytest.fixture(scope="module")
+def toml_with_loadenv(config_path, dotenv_file):
+    """TOML config with loadenv directive."""
+    ret = config_path / "loadenv_test.toml"
+    ret.write_text(
+        "# simpleconf-loadenv\n"
+        "[default]\n"
+        "host = \"$env:DB_HOST\"\n"
+        "port = \"$env:DB_PORT\"\n"
+    )
+    return ret

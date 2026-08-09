@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "python-simpleconf"
-version = "0.9.3"
+dynamic = ["version"]
 description = "Simple configuration management with python."
 authors = [{name = "pwwang", email = "pwwang@pwwang.com"}]
 license = {text = "MIT"}
@@ -14,6 +14,9 @@ dependencies = [
     "diot>=0.3.3,<0.4",
     "panpath>=0.4.8,<0.5",
 ]
+
+[tool.hatch.version]
+path = "simpleconf/__init__.py"
 
 [project.urls]
 Homepage = "https://github.com/pwwang/simpleconf"

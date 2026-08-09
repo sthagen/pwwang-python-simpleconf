@@ -530,3 +530,77 @@ async def test_osenv_a_loader():
         loaded = await loader.a_load_with_profiles("SIMPLECONF_TEST.osenv")
     assert isinstance(loaded, Diot)
     assert loaded == {"default": {"B": "2"}}
+
+
+# --- _resolve_env_vars unit tests ---
+
+
+def test_resolve_env_vars_required_default():
+    """$env:VAR resolves when VAR is in env_vars."""
+    loader = get_loader("dict")
+    loader.env_vars = {"HOST": "localhost"}
+    out = loader._resolve_env_vars(Diot({"a": "$env:HOST"}))
+    assert out.a == "localhost"
+
+
+def test_resolve_env_vars_required_raises():
+    """$env:VAR raises ValueError when VAR is not found."""
+    loader = get_loader("dict")
+    loader.env_vars = {}
+    with pytest.raises(ValueError, match="NONEXISTENT"):
+        loader._resolve_env_vars(Diot({"a": "$env:NONEXISTENT"}))
+
+
+def test_resolve_env_vars_optional_asis():
+    """$env:VAR:optional-asis keeps literal $env:VAR when not found."""
+    loader = get_loader("dict")
+    loader.env_vars = {}
+    out = loader._resolve_env_vars(Diot({"a": "$env:X:optional-asis"}))
+    assert out.a == "$env:X"
+
+
+def test_resolve_env_vars_optional_empty():
+    """$env:VAR:optional-empty resolves to '' when not found."""
+    loader = get_loader("dict")
+    loader.env_vars = {}
+    out = loader._resolve_env_vars(Diot({"a": "$env:X:optional-empty"}))
+    assert out.a == ""
+
+
+def test_resolve_env_vars_recursive():
+    """$env:VAR inside nested dicts resolves correctly."""
+    loader = get_loader("dict")
+    loader.env_vars = {"HOST": "localhost"}
+    out = loader._resolve_env_vars(
+        Diot({"db": {"host": "$env:HOST", "port": 5432}})
+    )
+    assert out.db.host == "localhost"
+    assert out.db.port == 5432
+
+
+def test_resolve_env_vars_non_string_passthrough():
+    """Int, float, None values pass through unchanged."""
+    loader = get_loader("dict")
+    loader.env_vars = {}
+    out = loader._resolve_env_vars(Diot({"a": 1, "b": 2.0, "c": None}))
+    assert out.a == 1
+    assert out.b == 2.0
+    assert out.c is None
+
+
+def test_resolve_env_vars_caster_applied():
+    """Env var @int:123 resolves to int 123."""
+    loader = get_loader("dict")
+    loader.env_vars = {"PORT": "@int:123"}
+    out = loader._resolve_env_vars(Diot({"a": "$env:PORT"}))
+    assert out.a == 123
+
+
+def test_resolve_env_vars_osenv_fallback():
+    """When not in env_vars, os.environ is checked."""
+    import os
+    loader = get_loader("dict")
+    loader.env_vars = {}
+    path = os.environ.get("PATH", "")
+    out = loader._resolve_env_vars(Diot({"a": "$env:PATH:optional-asis"}))
+    assert out.a == path

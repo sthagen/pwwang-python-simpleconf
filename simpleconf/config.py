@@ -5,10 +5,29 @@ from typing import Any, List, Generator, Union, Sequence
 
 from diot import Diot
 
-from .utils import config_to_ext, detect_loader_directive, get_loader, POOL_KEY, META_KEY
+from .utils import (
+    config_to_ext,
+    detect_loader_directive,
+    detect_loadenv_directive,
+    load_dotenv_file,
+    get_loader,
+    POOL_KEY,
+    META_KEY,
+)
 from .loaders import Loader
 
 LoaderType = Union[str, Loader, None]
+
+
+def _inject_env_vars(loader: Loader, config: Any) -> None:
+    """Detect ``# simpleconf-loadenv`` directive and inject env vars into loader.
+
+    If the config file contains a loadenv directive, the referenced ``.env``
+    file is loaded and its contents are stored in ``loader.env_vars``.
+    """
+    env_path = detect_loadenv_directive(config)
+    if env_path is not None:
+        loader.env_vars = load_dotenv_file(env_path)
 
 
 class Config:
@@ -121,6 +140,8 @@ class Config:
         else:
             loader = get_loader(loader)
 
+        _inject_env_vars(loader, config)
+
         return loader.load(config, ignore_nonexist)
 
     @classmethod
@@ -150,6 +171,8 @@ class Config:
             loader = get_loader(ext)
         else:
             loader = get_loader(loader)
+
+        _inject_env_vars(loader, config)
 
         return await loader.a_load(config, ignore_nonexist)
 
@@ -208,6 +231,8 @@ class ProfileConfig:
                 lder = get_loader(ext)
             else:
                 lder = get_loader(lder)
+
+            _inject_env_vars(lder, conf)
 
             loaded = lder.load_with_profiles(conf, ignore_nonexist)
             for profile, value in loaded.items():
@@ -279,6 +304,8 @@ class ProfileConfig:
             else:
                 lder = get_loader(lder)
 
+            _inject_env_vars(lder, conf)
+
             loaded = await lder.a_load_with_profiles(conf, ignore_nonexist)
             for profile, value in loaded.items():
                 profile = profile.lower()
@@ -331,6 +358,8 @@ class ProfileConfig:
             loader = get_loader(ext)
         else:
             loader = get_loader(loader)
+
+        _inject_env_vars(loader, conf)
 
         loaded = loader.load_with_profiles(conf, ignore_nonexist)
         for profile, value in loaded.items():
@@ -387,6 +416,8 @@ class ProfileConfig:
             loader = get_loader(ext)
         else:
             loader = get_loader(loader)
+
+        _inject_env_vars(loader, conf)
 
         loaded = await loader.a_load_with_profiles(conf, ignore_nonexist)
         for profile, value in loaded.items():
