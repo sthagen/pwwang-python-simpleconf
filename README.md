@@ -430,6 +430,9 @@ The `$env:` syntax supports optional modifiers to control the behavior when a va
 | `$env:VAR:required` | Explicit form — raises `ValueError` |
 | `$env:VAR:optional-asis` | Keeps the literal `$env:VAR` string unchanged |
 | `$env:VAR:optional-empty` | Resolves to an empty string `""` |
+| `$env:VAR:default:<value>` | Resolves to `<value>` instead |
+
+When found, the environment variable's value always wins over the `default`. Default values go through the same casting as env values, so cast prefixes like `@int:` work there too (e.g. `$env:PORT:default:@int:8080` resolves to the integer `8080`). The default value itself may contain colons (e.g. `$env:URL:default:http://localhost:8080`).
 
 **Example — using modifiers:**
 
@@ -445,6 +448,7 @@ db:
   host: $env:DB_HOST
   port: $env:DB_PORT:optional-asis   # keeps "$env:DB_PORT" as-is when not found
   timeout: $env:TIMEOUT:optional-empty  # becomes "" when not found
+  user: $env:DB_USER:default:admin   # becomes "admin" when not found
 ```
 
 ```python
@@ -454,6 +458,7 @@ conf = Config.load('config.yaml')
 # conf.db.host == 'localhost'
 # conf.db.port == '$env:DB_PORT'
 # conf.db.timeout == ''
+# conf.db.user == 'admin'
 ```
 
 **Example — using `env` in templates:**

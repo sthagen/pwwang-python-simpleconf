@@ -469,3 +469,18 @@ def test_loadenv_unknown_modifier_falls_back_to_required(tmp_path):
     )
     with pytest.raises(ValueError, match="NONEXISTENT:unknown"):
         Config.load(f)
+
+
+def test_loadenv_default_used_when_not_found(tmp_path):
+    """$env:NONEXISTENT:default:<value> falls back to <value>."""
+    env = tmp_path / ".env"
+    env.write_text("A=1\n")
+    f = tmp_path / "config.yaml"
+    f.write_text(
+        "# simpleconf-loadenv\n"
+        "a: $env:A:default:x\n"
+        "b: $env:NONEXISTENT:default:abc\n"
+    )
+    config = Config.load(f)
+    assert config.a == "1"  # found env var wins over the default
+    assert config.b == "abc"

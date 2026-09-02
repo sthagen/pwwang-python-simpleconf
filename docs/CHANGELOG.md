@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.9.6
+
+- feat: add support for default values in environment variable resolution
+
 ## 0.9.5
 
 - fix: fix error for _read_first_lines when file name is too long

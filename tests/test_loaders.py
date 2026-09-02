@@ -567,6 +567,46 @@ def test_resolve_env_vars_optional_empty():
     assert out.a == ""
 
 
+def test_resolve_env_vars_default_used_when_not_found():
+    """$env:VAR:default:<value> falls back to <value> when not found."""
+    loader = get_loader("dict")
+    loader.env_vars = {}
+    out = loader._resolve_env_vars(Diot({"a": "$env:X:default:abc"}))
+    assert out.a == "abc"
+
+
+def test_resolve_env_vars_default_env_wins():
+    """Found env var wins over the default value."""
+    loader = get_loader("dict")
+    loader.env_vars = {"X": "1"}
+    out = loader._resolve_env_vars(Diot({"a": "$env:X:default:abc"}))
+    assert out.a == "1"
+
+
+def test_resolve_env_vars_default_caster_applied():
+    """Default value is cast like an env var (@int:3 -> int 3)."""
+    loader = get_loader("dict")
+    loader.env_vars = {}
+    out = loader._resolve_env_vars(Diot({"a": "$env:X:default:@int:3"}))
+    assert out.a == 3
+
+
+def test_resolve_env_vars_default_with_colons():
+    """Default value itself may contain colons."""
+    loader = get_loader("dict")
+    loader.env_vars = {}
+    out = loader._resolve_env_vars(Diot({"a": "$env:URL:default:http://a:1"}))
+    assert out.a == "http://a:1"
+
+
+def test_resolve_env_vars_default_empty():
+    """$env:VAR:default: (empty) resolves to '' when not found."""
+    loader = get_loader("dict")
+    loader.env_vars = {}
+    out = loader._resolve_env_vars(Diot({"a": "$env:X:default:"}))
+    assert out.a == ""
+
+
 def test_resolve_env_vars_recursive():
     """$env:VAR inside nested dicts resolves correctly."""
     loader = get_loader("dict")
