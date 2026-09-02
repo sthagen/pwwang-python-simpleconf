@@ -73,6 +73,10 @@ class Loader(ABC):
             1. ``self.env_vars`` (loaded from ``.env`` file via directive)
             2. ``os.environ`` (system environment variables)
 
+        ``$env:KEY:default:<value>`` falls back to ``<value>`` when the
+        variable is not found (modifiers ``required``, ``optional-asis`` and
+        ``optional-empty`` control the not-found behavior otherwise).
+
         Resolved values are re-cast through :attr:`CASTERS`.
 
         Returns the mutated Diot for chaining.
@@ -90,7 +94,13 @@ class Loader(ABC):
                 return value
             if isinstance(value, str) and value.startswith("$env:"):
                 rest = value[5:]
-                if ":" in rest:
+                default = None
+                if ":default:" in rest:
+                    # $env:VAR:default:<value> — split on first occurrence so
+                    # the default itself may contain colons
+                    var_name, _, default = rest.partition(":default:")
+                    modifier = "required"
+                elif ":" in rest:
                     var_name, modifier = rest.rsplit(":", 1)
                     if modifier not in KNOWN_MODIFIERS:
                         # Unknown modifier — treat whole string as var name
@@ -104,6 +114,10 @@ class Loader(ABC):
 
                 if resolved is not None:
                     return cast_value(resolved, _ENV_CASTERS)
+
+                # Not found — use the default value if given
+                if default is not None:
+                    return cast_value(default, _ENV_CASTERS)
 
                 # Not found — behavior depends on modifier
                 if modifier == "optional-empty":
